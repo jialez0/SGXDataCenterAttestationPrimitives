@@ -71,9 +71,10 @@ int main(int argc, const char* argv[])
 {
     bool no_daemon = false;
     unsigned long int port = 0;
+    char *uds_file_path = new char[1000];
     char *endptr = NULL;
-    if (argc > 3) {
-        cout << "Usage: " << argv[0] << "[--no-daemon] [-p=port_number]"
+    if (argc > 4 || argc <= 1) {
+        cout << "Usage: " << argv[0] << "[--no-daemon] [-p=port_number] -uds_path=path"
              << endl;
         exit(1);
     }
@@ -98,8 +99,11 @@ int main(int argc, const char* argv[])
             }
             cout << "port number [" << port << "] found in cmdline" << endl;
             continue;
+        } else if (strncmp(argv[i], "-uds_path=", 10) == 0) {
+            printf("Unix socket file path: %s\n", argv[i]+10);
+            strcpy(uds_file_path, argv[i]+10);
         } else {
-            cout << "Usage: " << argv[0] << "[--no-daemon] [-p=port_number]"
+            cout << "Usage: " << argv[0] << "[--no-daemon] [-p=port_number] -uds_path=path"
                  << endl;
             exit(1);
         }
@@ -166,12 +170,17 @@ int main(int argc, const char* argv[])
         do {
             reload = false;
             asio::io_service io_service;
-            struct sockaddr_vm vm_addr = {};
-            vm_addr.svm_family = AF_VSOCK;
-            vm_addr.svm_reserved1 = 0;
-            vm_addr.svm_port = port & UINT_MAX;
-            vm_addr.svm_cid = VMADDR_CID_ANY;
-            asio::generic::stream_protocol::endpoint ep(&vm_addr, sizeof(vm_addr));
+            // struct sockaddr_vm vm_addr = {};
+            // vm_addr.svm_family = AF_VSOCK;
+            // vm_addr.svm_reserved1 = 0;
+            // vm_addr.svm_port = port & UINT_MAX;
+            // vm_addr.svm_cid = VMADDR_CID_ANY;
+            // asio::generic::stream_protocol::endpoint ep(&vm_addr, sizeof(vm_addr));
+            struct sockaddr_un addr = {};
+            addr.sun_family = AF_UNIX;
+            strncpy(addr.sun_path, uds_file_path, sizeof(addr.sun_path) - 1);
+            asio::generic::stream_protocol::endpoint ep(&addr, sizeof(addr));
+
             QGS_LOG_INFO("About to create QgsServer\n");
             server = new QgsServer(io_service, ep);
             QGS_LOG_INFO("About to start main loop\n");
